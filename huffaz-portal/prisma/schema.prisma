@@ -1,0 +1,86 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String        @id @default(uuid())
+  email           String        @unique
+  password        String
+  role            UserRole      @default(STUDENT)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  profile         Profile?
+  applications    Application[]
+  jobPostings     JobPosting[]  // For admin users
+}
+
+model Profile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  firstName       String
+  lastName        String
+  phone           String?
+  mbtiType        String?
+  mbtiCompleted   Boolean   @default(false)
+  resumeUrl       String?
+  certificateUrl  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model JobPosting {
+  id              String        @id @default(uuid())
+  title           String
+  company         String
+  location        String
+  salary          String?
+  description     String
+  requirements    String
+  responsibilities String?
+  benefits        String?
+  employmentType  String?
+  mbtiTypes       String?      // Comma-separated MBTI types
+  deadline        DateTime
+  status          String        @default("ACTIVE")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  adminId         String       // Reference to admin who posted
+  applications    Application[]
+  admin           User         @relation(fields: [adminId], references: [id])
+}
+
+model Application {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  jobPostingId    String
+  jobPosting      JobPosting        @relation(fields: [jobPostingId], references: [id])
+  status          ApplicationStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+}
+
+enum JobStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ApplicationStatus {
+  PENDING
+  REJECTED
+  INTERVIEWING
+  ACCEPTED
+} 
