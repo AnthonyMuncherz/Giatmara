@@ -7,6 +7,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, password, firstName, lastName, role = 'STUDENT' } = body;
 
+    // Validate role
+    const validRoles = ['STUDENT', 'EMPLOYER', 'ADMIN'];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role. Must be one of: ' + validRoles.join(', ') },
+        { status: 400 }
+      );
+    }
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -28,7 +37,7 @@ export async function POST(request: Request) {
         data: {
           email,
           password: hashedPassword,
-          role: role as 'STUDENT' | 'ADMIN',
+          role,
         },
       });
 

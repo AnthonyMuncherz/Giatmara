@@ -20,6 +20,7 @@ export default function RegisterPage() {
       password: formData.get('password'),
       firstName: formData.get('firstName'),
       lastName: formData.get('lastName'),
+      role: formData.get('role') || 'STUDENT',
     };
 
     try {
@@ -122,6 +123,26 @@ export default function RegisterPage() {
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                Account Type
+              </label>
+              <div className="mt-1">
+                <select
+                  id="role"
+                  name="role"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="STUDENT">Student</option>
+                  <option value="EMPLOYER">Employer</option>
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Students: Create a profile, take MBTI assessment, and apply for jobs.<br />
+                Employers: Post job listings and manage applications.
+              </p>
             </div>
 
             {error && (

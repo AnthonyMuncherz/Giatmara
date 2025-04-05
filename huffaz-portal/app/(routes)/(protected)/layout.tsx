@@ -29,6 +29,7 @@ export default function ProtectedLayout({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isEmployer, setIsEmployer] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -43,7 +44,8 @@ export default function ProtectedLayout({
         setUser(data.user);
         
         // Redirect to MBTI assessment if not completed and not already on that page
-        if (data.user?.profile && !data.user.profile.mbtiCompleted && pathname !== '/mbti-assessment') {
+        // But only for STUDENT role
+        if (data.user?.role === 'STUDENT' && data.user?.profile && !data.user.profile.mbtiCompleted && pathname !== '/mbti-assessment') {
           router.push('/mbti-assessment');
         }
       } catch {
@@ -53,22 +55,23 @@ export default function ProtectedLayout({
       }
     };
 
-    const checkAdminStatus = async () => {
+    const checkUserRoles = async () => {
       try {
         const response = await fetch('/api/auth/me');
         if (response.ok) {
           const data = await response.json();
           setIsAdmin(data.user?.role === 'ADMIN');
+          setIsEmployer(data.user?.role === 'EMPLOYER');
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
+        console.error('Error checking user roles:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuth();
-    checkAdminStatus();
+    checkUserRoles();
   }, [router, pathname]);
 
   const handleLogout = async () => {
@@ -84,8 +87,9 @@ export default function ProtectedLayout({
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Jobs', href: '/jobs' },
     { name: 'Profile', href: '/profile' },
-    // Only show Admin in top navbar if sidebar is NOT showing (for mobile)
+    // Only show Admin/Employer in top navbar if sidebar is NOT showing (for mobile)
     ...(user?.role === 'ADMIN' && !isAdmin ? [{ name: 'Admin', href: '/dashboard/admin' }] : []),
+    ...(user?.role === 'EMPLOYER' && !isEmployer ? [{ name: 'Employer', href: '/employer' }] : []),
   ];
 
   const isActive = (path: string) => {
@@ -105,14 +109,15 @@ export default function ProtectedLayout({
   }
 
   // If mbti assessment needs to be completed and we're not on the mbti page, don't render
-  if (user.profile && !user.profile.mbtiCompleted && pathname !== '/mbti-assessment') {
+  // Only apply MBTI restriction for STUDENT role
+  if (user.role === 'STUDENT' && user.profile && !user.profile.mbtiCompleted && pathname !== '/mbti-assessment') {
     return null; // Will redirect in useEffect
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar backdrop */}
-      {isAdmin && sidebarOpen && (
+      {(isAdmin || isEmployer) && sidebarOpen && (
         <div 
           className="fixed inset-0 bg-gray-800/60 z-20 md:hidden"
           onClick={() => setSidebarOpen(false)}
@@ -224,7 +229,82 @@ export default function ProtectedLayout({
         </div>
       )}
       
-      <div className={isAdmin ? "ml-0 md:ml-64" : ""}>
+      {/* Employer Sidebar - Desktop: always visible, Mobile: toggleable */}
+      {isEmployer && (
+        <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}>
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-indigo-600">Employer Dashboard</h2>
+            <button 
+              className="md:hidden rounded-md p-2 text-gray-500 hover:bg-gray-100"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <nav className="p-4 space-y-1">
+            <Link 
+              href="/dashboard"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                isActive('/dashboard') && !isActive('/employer') 
+                  ? 'bg-indigo-100 text-indigo-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </Link>
+            
+            <Link 
+              href="/employer"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                isActive('/employer') && !isActive('/employer/jobs') && !isActive('/employer/applications')
+                  ? 'bg-indigo-100 text-indigo-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Employer Home
+            </Link>
+            
+            <Link 
+              href="/employer/jobs"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                isActive('/employer/jobs')
+                  ? 'bg-indigo-100 text-indigo-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              My Job Postings
+            </Link>
+            
+            <Link 
+              href="/employer/jobs/create"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                isActive('/employer/jobs/create')
+                  ? 'bg-indigo-100 text-indigo-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Job
+            </Link>
+          </nav>
+        </div>
+      )}
+      
+      <div className={(isAdmin || isEmployer) ? "ml-0 md:ml-64" : ""}>
         <Disclosure as="nav" className="bg-white shadow">
           {({ open }) => (
             <>
@@ -232,7 +312,7 @@ export default function ProtectedLayout({
                 <div className="flex h-16 justify-between">
                   <div className="flex">
                     {/* Only show sidebar toggle for admin users on mobile */}
-                    {isAdmin && (
+                    {(isAdmin || isEmployer) && (
                       <div className="flex items-center mr-2 md:hidden">
                         <button
                           type="button"

@@ -51,9 +51,9 @@ model JobPosting {
   status          String        @default("ACTIVE")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  adminId         String       // Reference to admin who posted
+  adminId         String        // ID of the user who created the job (admin or employer)
+  admin           User          @relation(fields: [adminId], references: [id])
   applications    Application[]
-  admin           User         @relation(fields: [adminId], references: [id])
 }
 
 model Application {
@@ -71,6 +71,7 @@ model Application {
 enum UserRole {
   ADMIN
   STUDENT
+  EMPLOYER
 }
 
 enum JobStatus {
