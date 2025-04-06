@@ -6,105 +6,229 @@ import { useSession } from '@/app/lib/session';
 import { Button } from '@/app/components/ui/button';
 import Link from 'next/link';
 
-interface Application {
+// Simple types for our data
+type Application = {
   id: string;
-  userId: string;
   status: string;
   createdAt: string;
   studentName: string;
   studentEmail: string;
   resumeUrl?: string;
-}
+};
 
-interface JobInfo {
+type JobInfo = {
   id: string;
   title: string;
   company: string;
-}
+};
 
 export default function JobApplications() {
-  const { session, loading } = useSession();
-  const params = useParams();
-  const router = useRouter();
-  const jobId = params.id;
-  
-  const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
+  // Basic state - keep it minimal
+  const [job, setJob] = useState<JobInfo | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
+  const [showRefreshButton, setShowRefreshButton] = useState(false);
+  
+  // Hooks
+  const { user, loading: sessionLoading } = useSession();
+  const router = useRouter();
+  const params = useParams();
+  const jobId = params?.id as string;
+  
+  // Setup timer for showing refresh button
   useEffect(() => {
-    // Redirect if not logged in or not an employer
-    if (!loading && (!session || session.role !== 'EMPLOYER')) {
-      router.push('/dashboard');
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setShowRefreshButton(true);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+  
+  // Load data on mount
+  useEffect(() => {
+    // Skip if session is still loading
+    if (sessionLoading) {
+      return;
+    }
+
+    // Function to load all data
+    async function loadData() {
+      try {
+        setIsLoading(true);
+        setError('');
+        
+        // Verify auth first - but don't redirect immediately
+        if (!user) {
+          setError('Please log in to view this page');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (user.role !== 'EMPLOYER') {
+          setError('Only employers can access this page');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Now load job info with credentials
+        const jobResponse = await fetch(`/api/employer/jobs/${jobId}`, {
+          credentials: 'include'
+        });
+        
+        if (!jobResponse.ok) {
+          if (jobResponse.status === 401 || jobResponse.status === 403) {
+            setError('Your session has expired. Please log in again.');
+            setIsLoading(false);
+            return;
+          }
+          throw new Error('Failed to load job information');
+        }
+        
+        const jobData = await jobResponse.json();
+        
+        if (!jobData.job) {
+          throw new Error('Job not found');
+        }
+        
+        setJob({
+          id: jobData.job.id,
+          title: jobData.job.title || 'Untitled Job',
+          company: jobData.job.company || 'Unknown Company'
+        });
+        
+        // Then load applications with credentials
+        const applicationsResponse = await fetch(`/api/employer/jobs/${jobId}/applications`, {
+          credentials: 'include'
+        });
+        
+        if (!applicationsResponse.ok) {
+          if (applicationsResponse.status === 401 || applicationsResponse.status === 403) {
+            setError('Your session has expired. Please log in again.');
+            setIsLoading(false);
+            return;
+          }
+          throw new Error('Failed to load applications');
+        }
+        
+        const applicationsData = await applicationsResponse.json();
+        
+        if (Array.isArray(applicationsData.applications)) {
+          setApplications(applicationsData.applications.map((app: any) => ({
+            id: app.id || '',
+            status: app.status || 'PENDING',
+            createdAt: app.createdAt || new Date().toISOString(),
+            studentName: app.studentName || 'Unknown Student',
+            studentEmail: app.studentEmail || 'No Email',
+            resumeUrl: app.resumeUrl
+          })));
+        } else {
+          setApplications([]);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      } finally {
+        setIsLoading(false);
+      }
     }
     
-    // Fetch job info and applications
-    if (session && jobId) {
-      fetchJobInfo();
-      fetchApplications();
-    }
-  }, [session, loading, router, jobId]);
-
-  const fetchJobInfo = async () => {
-    try {
-      const response = await fetch(`/api/employer/jobs/${jobId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setJobInfo(data.job);
-      } else {
-        setError('Failed to load job information');
-      }
-    } catch (error) {
-      console.error('Error fetching job info:', error);
-      setError('Error loading job information');
-    }
-  };
-
-  const fetchApplications = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/employer/jobs/${jobId}/applications`);
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data.applications || []);
-      } else {
-        setError('Failed to load applications');
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-      setError('Error loading applications');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+    loadData();
+  }, [jobId, user, router, sessionLoading]);
+  
+  // Show loading state while session is loading
+  if (sessionLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="text-center mb-4">Loading user session...</div>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  
+  // Function to update application status
   const handleStatusUpdate = async (applicationId: string, newStatus: string) => {
     try {
       const response = await fetch(`/api/employer/applications/${applicationId}/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       
-      if (response.ok) {
-        // Refresh the applications list
-        fetchApplications();
-      } else {
-        setError('Failed to update application status');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update status');
       }
+      
+      // Update local state
+      setApplications(prevApps => 
+        prevApps.map(app => 
+          app.id === applicationId ? {...app, status: newStatus} : app
+        )
+      );
     } catch (error) {
-      console.error('Error updating application status:', error);
-      setError('Error updating application status');
+      console.error('Error updating status:', error);
+      alert('Failed to update status. Please try again.');
     }
   };
-
-  if (loading || isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="text-center mb-4">Loading...</div>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        
+        {showRefreshButton && (
+          <Button 
+            variant="default"
+            onClick={() => window.location.reload()}
+            className="mt-4"
+          >
+            Refresh Page
+          </Button>
+        )}
+      </div>
+    );
   }
-
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-4">
+          <Link href="/employer/jobs" className="text-blue-600 hover:underline">
+            ← Back to Jobs
+          </Link>
+        </div>
+        
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+        
+        <div className="flex space-x-3">
+          <Button 
+            variant="default" 
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/employer/jobs')}
+          >
+            Return to Jobs
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Render applications list
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -112,20 +236,10 @@ export default function JobApplications() {
           ← Back to Jobs
         </Link>
         
-        {jobInfo ? (
-          <h1 className="text-3xl font-bold">
-            Applications for {jobInfo.title} at {jobInfo.company}
-          </h1>
-        ) : (
-          <h1 className="text-3xl font-bold">Job Applications</h1>
-        )}
+        <h1 className="text-3xl font-bold mt-2">
+          {job ? `Applications for ${job.title}` : 'Job Applications'}
+        </h1>
       </div>
-      
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
       
       {applications.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
@@ -183,7 +297,7 @@ export default function JobApplications() {
                         <Button variant="outline" size="sm">
                           Change Status
                         </Button>
-                        <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded hidden group-hover:block z-10">
+                        <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md hidden group-hover:block z-10 border border-gray-200">
                           <ul className="py-1">
                             <li>
                               <button

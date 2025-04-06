@@ -11,7 +11,7 @@ export async function GET(
     // Properly handle params which might be a promise in Next.js App Router
     const params = await Promise.resolve(context.params);
     const id = params.id;
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'Job ID is required' },
@@ -47,48 +47,49 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    
+    // Await params resolution
+    const { id } = await Promise.resolve(params);
+
     if (!id) {
       return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }
-    
+
     const token = await getTokenFromCookies();
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const decoded = verifyToken(token);
-    
+
     if (!decoded || decoded.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
+
     const requestBody = await request.json();
-    const { 
-      title, 
-      company, 
-      location, 
-      salary, 
-      description, 
-      requirements, 
+    const {
+      title,
+      company,
+      location,
+      salary,
+      description,
+      requirements,
       responsibilities,
       benefits,
       employmentType,
-      mbtiTypes, 
+      mbtiTypes,
       deadline,
-      status 
+      status
     } = requestBody;
-    
+
     const existingJob = await prisma.jobPosting.findUnique({
       where: { id },
     });
-    
+
     if (!existingJob) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
-    
+
     const job = await prisma.jobPosting.update({
       where: { id },
       data: {
@@ -106,10 +107,10 @@ export async function PATCH(
         status,
       },
     });
-    
+
     return NextResponse.json({ message: 'Job updated successfully', job });
   } catch (error) {
     console.error('Error updating job:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-} 
+}

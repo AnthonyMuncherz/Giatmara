@@ -9,7 +9,7 @@ export async function GET(
   try {
     // Get current user from token
     const user = await getCurrentUser();
-    
+
     // Check if user is authenticated and is an admin
     if (!user || user.role !== 'ADMIN') {
       return NextResponse.json(
@@ -18,8 +18,10 @@ export async function GET(
       );
     }
 
-    const userId = params.id;
-    
+    // Await params resolution
+    const { id } = await Promise.resolve(params);
+    const userId = id;
+
     // Fetch detailed user information including profile and applications
     const userDetail = await prisma.user.findUnique({
       where: { id: userId },
@@ -41,14 +43,14 @@ export async function GET(
         },
       },
     });
-    
+
     if (!userDetail) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({ user: userDetail });
   } catch (error) {
     console.error('Error fetching user details:', error);
@@ -57,4 +59,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
