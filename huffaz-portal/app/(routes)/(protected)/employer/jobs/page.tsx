@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/ui/button';
 import { useSession } from '@/app/lib/session'; // Import useSession
+import { PlusIcon } from '@heroicons/react/24/outline'; // Import PlusIcon
 
 interface Job {
   id: string;
@@ -111,10 +112,14 @@ export default function EmployerJobs() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-8"> {/* Added flex-wrap and gap */}
         <h1 className="text-3xl font-bold">My Job Postings</h1>
         <Link href="/employer/jobs/create">
-          <Button>Create New Job</Button>
+          {/* Updated Button with Icon */}
+          <Button variant="default" className="flex items-center gap-2">
+            <PlusIcon className="h-5 w-5" />
+            Create New Job
+          </Button>
         </Link>
       </div>
 
