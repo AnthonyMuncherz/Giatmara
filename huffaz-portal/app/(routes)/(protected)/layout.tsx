@@ -12,9 +12,9 @@ import { useSession } from '@/app/lib/session';
 const studentNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Jobs', href: '/jobs', icon: BriefcaseIcon },
-  { name: 'My Applications', href: '/my-applications', icon: InboxIcon },
+  { name: 'My Applications', href: '/my-applications', icon: InboxIcon }, // <-- ADDED
+  { name: 'Documents', href: '/documents', icon: DocumentTextIcon }, // <-- ADDED
   { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-  { name: 'Documents', href: '/documents', icon: DocumentTextIcon },
 ];
 
 const employerNavigation = [
@@ -74,7 +74,9 @@ export default function ProtectedLayout({
           setProfileData(data.profile);
 
           // MBTI Check for STUDENTS only after profile is fetched
-          if (user.role === 'STUDENT' && data.profile && !data.profile.mbtiCompleted && pathname !== '/mbti-assessment') {
+          // Also ensure we are not already on the documents page or its subpages
+          const isDocumentPage = pathname.startsWith('/documents');
+          if (user.role === 'STUDENT' && data.profile && !data.profile.mbtiCompleted && pathname !== '/mbti-assessment' && !isDocumentPage) {
             console.log("ProtectedLayout Effect: Student missing MBTI, redirecting.");
             router.push('/mbti-assessment');
             // No return here, let the redirect happen
@@ -120,9 +122,9 @@ export default function ProtectedLayout({
     sidebarTitle = 'Employer Menu';
     showSidebar = true;
   } else if (currentRole === 'STUDENT') {
-    navigation = studentNavigation;
+    navigation = studentNavigation; // Use updated studentNavigation
     sidebarTitle = 'Student Menu';
-    showSidebar = false;
+    showSidebar = false; // Students don't get the sidebar
   }
   mobileNavigation = navigation.map(item => ({ name: item.name, href: item.href }));
 
@@ -144,6 +146,10 @@ export default function ProtectedLayout({
           return true;
         }
       }
+    }
+    // Make "Documents" active when on upload subpages
+    if (path === '/documents' && pathname.startsWith('/documents/')) {
+      return true;
     }
     // Add similar logic for other parent routes if needed, e.g., /dashboard/admin/users
 
@@ -177,7 +183,7 @@ export default function ProtectedLayout({
   const mbtiType = profileData?.mbtiType;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile sidebar backdrop */}
       {showSidebar && sidebarOpen && (
         <div
@@ -189,20 +195,20 @@ export default function ProtectedLayout({
 
       {/* Conditional Sidebar Rendering */}
       {showSidebar && (
-        <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-          <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
+        <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+          <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
             <Link href="/dashboard" className="flex items-center gap-2">
               <Image
                 src="/Giatmara.png"
                 alt="Giatmara Logo"
                 width={40}
                 height={40}
-                className="h-10 w-auto"
+                className="h-10 w-auto dark:invert" // Invert logo in dark mode if needed
               />
-              <span className="text-lg font-semibold text-indigo-600">{sidebarTitle}</span>
+              <span className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">{sidebarTitle}</span>
             </Link>
             <button
-              className="md:hidden rounded-md p-2 text-gray-500 hover:bg-gray-100"
+              className="md:hidden rounded-md p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => setSidebarOpen(false)}
             >
               <XMarkIcon className="h-5 w-5" />
@@ -216,8 +222,8 @@ export default function ProtectedLayout({
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive(item.href)
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" aria-hidden="true" />
@@ -230,7 +236,7 @@ export default function ProtectedLayout({
 
       {/* Main Content Area */}
       <div className={showSidebar ? "md:ml-64" : ""}>
-        <Disclosure as="nav" className="bg-white shadow">
+        <Disclosure as="nav" className="bg-white dark:bg-gray-800 shadow">
           {({ open }) => (
             <>
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -240,7 +246,7 @@ export default function ProtectedLayout({
                       <div className="flex items-center mr-2 md:hidden">
                         <button
                           type="button"
-                          className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100"
+                          className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                           onClick={() => setSidebarOpen(true)}
                         >
                           <Bars3Icon className="h-6 w-6" aria-hidden="true" />
@@ -256,7 +262,7 @@ export default function ProtectedLayout({
                             alt="Giatmara Logo"
                             width={140}
                             height={38}
-                            className="h-10 w-auto"
+                            className="h-10 w-auto dark:invert" // Invert logo in dark mode if needed
                             priority
                           />
                         </Link>
@@ -269,8 +275,8 @@ export default function ProtectedLayout({
                             key={item.name}
                             href={item.href}
                             className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${isActive(item.href)
-                              ? 'border-b-2 border-indigo-500 text-gray-900'
-                              : 'border-b-2 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                              ? 'border-b-2 border-indigo-500 dark:border-indigo-400 text-gray-900 dark:text-white'
+                              : 'border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
                               }`}
                           >
                             {item.name}
@@ -281,12 +287,12 @@ export default function ProtectedLayout({
                   </div>
 
                   <div className="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div className="text-sm text-gray-500 mr-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mr-4">
                       {displayName}
                       {user?.role === 'STUDENT' && mbtiType && (
                         <Link
                           href={`/mbti-results?type=${mbtiType}`}
-                          className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md text-xs inline-block hover:bg-indigo-200 transition-colors cursor-pointer"
+                          className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 rounded-md text-xs inline-block hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors cursor-pointer"
                           aria-label={`View your MBTI type details: ${mbtiType}`}
                         >
                           {mbtiType}
@@ -295,15 +301,16 @@ export default function ProtectedLayout({
                     </div>
                     <button
                       onClick={handleLogout}
-                      className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      className="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                     >
                       Logout
                     </button>
                   </div>
 
                   <div className="-mr-2 flex items-center sm:hidden">
+                    {/* Hamburger for non-sidebar users */}
                     {!showSidebar && (
-                      <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500">
+                      <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-500 dark:hover:text-gray-300">
                         <span className="sr-only">Open main menu</span>
                         {open ? (
                           <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
@@ -312,12 +319,24 @@ export default function ProtectedLayout({
                         )}
                       </Disclosure.Button>
                     )}
+                    {/* Hamburger for sidebar users (only when sidebar is closed) */}
+                    {showSidebar && !sidebarOpen && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setSidebarOpen(true)}
+                      >
+                        <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                        <span className="sr-only">Open sidebar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
 
+              {/* Mobile menu panel for non-sidebar users */}
               {!showSidebar && (
-                <Disclosure.Panel className="sm:hidden">
+                <Disclosure.Panel className="sm:hidden border-t border-gray-200 dark:border-gray-700">
                   <div className="space-y-1 pb-3 pt-2">
                     {mobileNavigation.map((item) => (
                       <Disclosure.Button
@@ -325,22 +344,22 @@ export default function ProtectedLayout({
                         as={Link}
                         href={item.href}
                         className={`block py-2 pl-3 pr-4 text-base font-medium ${isActive(item.href)
-                          ? 'bg-indigo-50 border-l-4 border-indigo-500 text-indigo-700'
-                          : 'border-l-4 border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+                          ? 'bg-indigo-50 dark:bg-indigo-900/50 border-l-4 border-indigo-500 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300'
+                          : 'border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
                           }`}
                       >
                         {item.name}
                       </Disclosure.Button>
                     ))}
                   </div>
-                  <div className="border-t border-gray-200 pt-4 pb-3">
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 pb-3">
                     <div className="flex items-center px-4">
-                      <div className="text-base font-medium text-gray-800">
+                      <div className="text-base font-medium text-gray-800 dark:text-gray-200">
                         {displayName}
                         {user?.role === 'STUDENT' && mbtiType && (
                           <Link
                             href={`/mbti-results?type=${mbtiType}`}
-                            className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md text-xs inline-block hover:bg-indigo-200 transition-colors cursor-pointer"
+                            className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 rounded-md text-xs inline-block hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors cursor-pointer"
                             aria-label={`View your MBTI type details: ${mbtiType}`}
                           >
                             {mbtiType}
@@ -352,7 +371,7 @@ export default function ProtectedLayout({
                       <Disclosure.Button
                         as="button"
                         onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                        className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                       >
                         Logout
                       </Disclosure.Button>
@@ -366,7 +385,8 @@ export default function ProtectedLayout({
 
         <main>
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            {children}
+            {/* Render children only if user role check passed (or still loading) */}
+            {(sessionLoading || (user && (currentRole === 'STUDENT' || currentRole === 'EMPLOYER' || currentRole === 'ADMIN'))) ? children : null}
           </div>
         </main>
       </div>
