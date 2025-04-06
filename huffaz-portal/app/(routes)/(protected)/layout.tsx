@@ -21,13 +21,14 @@ const employerNavigation = [
   { name: 'Employer Home', href: '/employer', icon: HomeIcon },
   { name: 'My Job Postings', href: '/employer/jobs', icon: BriefcaseIcon },
   { name: 'Create Job', href: '/employer/jobs/create', icon: DocumentTextIcon },
-  { name: 'All Applications', href: '/employer/applications', icon: InboxIcon },
+  // Removed '/employer/applications' as it's typically accessed via a specific job
+  // { name: 'All Applications', href: '/employer/applications', icon: InboxIcon },
   { name: 'Profile', href: '/profile', icon: UserCircleIcon },
 ];
 
 const adminNavigation = [
   { name: 'Admin Dashboard', href: '/dashboard/admin', icon: CogIcon },
-  { name: 'Job Management', href: '/dashboard/admin', icon: BriefcaseIcon },
+  { name: 'Job Management', href: '/dashboard/admin', icon: BriefcaseIcon }, // Consider linking to /dashboard/admin/jobs if that exists
   { name: 'Applications', href: '/dashboard/admin/applications', icon: InboxIcon },
   { name: 'Create Job', href: '/dashboard/admin/create-job', icon: DocumentTextIcon },
   { name: 'User Management', href: '/dashboard/admin/users', icon: UserGroupIcon },
@@ -125,14 +126,31 @@ export default function ProtectedLayout({
   }
   mobileNavigation = navigation.map(item => ({ name: item.name, href: item.href }));
 
+  // --- Updated isActive function ---
   const isActive = (path: string) => {
-    if (path === '/dashboard' && pathname === '/dashboard') return true;
-    if (path === '/employer' && pathname === '/employer') return true;
-    if (path === '/dashboard/admin' && pathname === '/dashboard/admin') return true;
-    if (path !== '/' && pathname.startsWith(path + '/')) return true;
-    if (path !== '/' && pathname === path) return true;
+    // 1. Exact match always wins
+    if (pathname === path) {
+      return true;
+    }
+
+    // 2. Handle specific parent routes that should be active for their children
+    // Make "My Job Postings" active when viewing applications or editing a specific job
+    if (path === '/employer/jobs') {
+      // Check if pathname starts with /employer/jobs/ followed by an ID (not 'create')
+      const match = pathname.match(/^\/employer\/jobs\/([a-zA-Z0-9-]+)(\/.*)?$/);
+      if (match && match[1] !== 'create') {
+        // Check if it's applications or edit page
+        if (pathname.includes('/applications') || pathname.includes('/edit')) {
+          return true;
+        }
+      }
+    }
+    // Add similar logic for other parent routes if needed, e.g., /dashboard/admin/users
+
+    // 3. Default: No match
     return false;
   };
+  // --- End of update ---
 
   // Use sessionLoading directly for the main loading indicator
   if (sessionLoading) {
