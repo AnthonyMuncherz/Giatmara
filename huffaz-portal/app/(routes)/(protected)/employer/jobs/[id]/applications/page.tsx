@@ -298,52 +298,6 @@ export default function JobApplications() {
                   </td>
                   <td className="p-4">
                     <div className="flex justify-center space-x-2">
-                      {/* --- Status Change Dropdown --- */}
-                      <div className="relative group">
-                        <Button variant="outline" size="sm">
-                          Change Status
-                        </Button>
-                        <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md hidden group-hover:block z-10 border border-gray-200">
-                          <ul className="py-1">
-                            <li>
-                              <button
-                                onClick={() => handleStatusUpdate(app.id, 'PENDING')}
-                                disabled={app.status === 'PENDING'}
-                                className="block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Pending
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                onClick={() => handleStatusUpdate(app.id, 'INTERVIEWING')}
-                                disabled={app.status === 'INTERVIEWING'}
-                                className="block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Interviewing
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                onClick={() => handleStatusUpdate(app.id, 'ACCEPTED')}
-                                disabled={app.status === 'ACCEPTED'}
-                                className="block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Accepted
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                onClick={() => handleStatusUpdate(app.id, 'REJECTED')}
-                                disabled={app.status === 'REJECTED'}
-                                className="block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Rejected
-                              </button>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
                       {/* --- View Details Button --- */}
                       <Link href={`/employer/applications/${app.id}`}>
                         <Button variant="default" size="sm">

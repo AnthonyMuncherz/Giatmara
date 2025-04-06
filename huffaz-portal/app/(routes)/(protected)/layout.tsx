@@ -115,9 +115,11 @@ export default function ProtectedLayout({
   const isActive = (path: string) => {
     // More specific check for dashboard/admin/employer distinction
     if (path === '/dashboard') return pathname === '/dashboard';
-    if (path === '/employer') return pathname.startsWith('/employer');
+    if (path === '/employer') return pathname === '/employer';
+    if (path === '/employer/jobs') return pathname === '/employer/jobs' || pathname.startsWith('/employer/jobs/') && !pathname.includes('/create');
+    if (path === '/employer/jobs/create') return pathname === '/employer/jobs/create';
     if (path === '/dashboard/admin') return pathname.startsWith('/dashboard/admin');
-    return pathname.startsWith(path);
+    return pathname === path;
   };
 
   // Use the sessionLoading state from the hook

@@ -191,6 +191,13 @@ export default function ApplicationDetailsPage() {
               size="sm"
               onClick={() => handleStatusUpdate(status)}
               disabled={isUpdating || application.status === status}
+              className={
+                status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300' :
+                status === 'INTERVIEWING' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300' :
+                status === 'ACCEPTED' ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-300' :
+                status === 'REJECTED' ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' :
+                ''
+              }
             >
               {status.charAt(0) + status.slice(1).toLowerCase()}
             </Button>
@@ -241,7 +248,7 @@ export default function ApplicationDetailsPage() {
               <p><strong>Company:</strong> {application.job.company}</p>
               <p><strong>Location:</strong> {application.job.location}</p>
               <Link href={`/jobs/${application.job.id}`} target="_blank" rel="noopener noreferrer">
-                <Button variant="link" className="p-0 h-auto">View Original Job Posting</Button>
+                <Button variant="link" className="p-0 h-auto mt-4">View Original Job Posting</Button>
               </Link>
             </CardContent>
           </Card>
