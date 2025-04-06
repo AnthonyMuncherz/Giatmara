@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from '@/app/lib/session';
+import { useSession } from '@/app/lib/session'; // Keep this import path
 import { Button } from '@/app/components/ui/button';
 import Link from 'next/link';
 
@@ -49,8 +49,8 @@ export default function JobApplications() {
 
   // Load data on mount
   useEffect(() => {
-    // Skip if session is still loading
-    if (sessionLoading) {
+    // Skip if session is still loading or no jobId
+    if (sessionLoading || !jobId) {
       return;
     }
 
@@ -136,7 +136,7 @@ export default function JobApplications() {
     }
 
     loadData();
-  }, [jobId, user, router, sessionLoading]); // Removed router from dependencies as it wasn't used directly in loadData
+  }, [jobId, user, sessionLoading]); // Dependencies updated
 
   // Show loading state while session is loading
   if (sessionLoading) {

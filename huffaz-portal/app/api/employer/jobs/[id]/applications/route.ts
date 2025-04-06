@@ -1,33 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/app/lib/db';
-import { getTokenFromCookies, verifyToken } from '@/app/lib/auth';
+import { getCurrentUser } from '@/app/lib/auth'; // Use getCurrentUser
 
 export async function GET(
-  request: Request,
+  request: NextRequest, // Accept request
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await getCurrentUser(request); // Pass request
+
     // Await params resolution before accessing properties
     const { id } = await Promise.resolve(params);
     const jobId = id;
     console.log(`Fetching applications for job ID: ${jobId}`);
 
-    const token = await getTokenFromCookies();
-
-    if (!token) {
-      console.log('No authentication token found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
-
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
-      console.log('Invalid token or not an employer', decoded);
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      if (!user) {
+        console.log('No authentication token found');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      console.log('Invalid token or not an employer', user);
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Use the resolved jobId
-    console.log(`Employer ID: ${decoded.id}, Job ID: ${jobId}`);
+    console.log(`Employer ID: ${user.id}, Job ID: ${jobId}`);
 
     // Check if job exists and belongs to this employer
     let job;
@@ -48,8 +45,8 @@ export async function GET(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    if (job.adminId !== decoded.id) {
-      console.log(`Unauthorized: Job belongs to admin ${job.adminId}, not ${decoded.id}`);
+    if (job.adminId !== user.id) {
+      console.log(`Unauthorized: Job belongs to admin ${job.adminId}, not ${user.id}`);
       return NextResponse.json(
         { error: 'You do not have permission to view applications for this job' },
         { status: 403 }
@@ -128,7 +125,7 @@ export async function GET(
       });
 
       // Log the complete formatted applications to diagnose issues
-      console.log('Formatted applications:', JSON.stringify(formattedApplications, null, 2));
+      // console.log('Formatted applications:', JSON.stringify(formattedApplications, null, 2));
 
       return NextResponse.json({ applications: formattedApplications });
     } catch (formatError) {

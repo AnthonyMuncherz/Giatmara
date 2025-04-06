@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
-import { useSession } from '@/app/lib/session';
+import { useSession } from '@/app/lib/session'; // Keep this import path
 
 export default function EditJob() {
   const router = useRouter();
   const params = useParams();
   const jobId = params?.id as string;
   const { user, loading: sessionLoading } = useSession();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -25,14 +25,14 @@ export default function EditJob() {
     responsibilities: '',
     benefits: '',
     employmentType: '',
-    mbtiTypes: '',
+    mbtiTypes: '', // Store as string
     deadline: ''
   });
 
   // Fetch job data when component mounts
   useEffect(() => {
-    if (sessionLoading) return;
-    
+    if (sessionLoading || !jobId) return; // Wait for session and jobId
+
     if (!user) {
       router.push('/login');
       return;
@@ -46,37 +46,47 @@ export default function EditJob() {
     async function fetchJobDetails() {
       setIsLoading(true);
       setError('');
-      
+
       try {
         const response = await fetch(`/api/employer/jobs/${jobId}`, {
           credentials: 'include'
         });
 
         if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `Failed to fetch job details (${response.status})` }));
+          setError(errorData.error || `Failed to fetch job details (${response.status})`);
           if (response.status === 401 || response.status === 403) {
-            router.push('/login');
-            return;
+            router.push('/login'); // Or show error
           }
-          throw new Error(`Failed to fetch job details (${response.status})`);
+          console.error('API Error:', errorData);
+          return; // Stop execution on error
         }
 
         const data = await response.json();
-        
+
         if (!data.job) {
-          throw new Error('Job not found');
+          setError('Job not found');
+          return; // Stop execution if job not found
         }
 
         // Format deadline date (ISO string to YYYY-MM-DD)
         let formattedDeadline = '';
         if (data.job.deadline) {
-          formattedDeadline = new Date(data.job.deadline).toISOString().split('T')[0];
+          try {
+            formattedDeadline = new Date(data.job.deadline).toISOString().split('T')[0];
+          } catch (dateError) {
+            console.error("Error formatting deadline:", dateError);
+            // Keep it empty or use original string if formatting fails
+            formattedDeadline = data.job.deadline;
+          }
         }
 
-        // Format MBTI types if it's an array
-        let mbtiTypes = data.job.mbtiTypes || '';
-        if (Array.isArray(mbtiTypes)) {
-          mbtiTypes = mbtiTypes.join(', ');
+        // Ensure mbtiTypes is stored as a string
+        let mbtiTypesString = data.job.mbtiTypes || '';
+        if (Array.isArray(mbtiTypesString)) { // Handle case where API might mistakenly return array
+          mbtiTypesString = mbtiTypesString.join(', ');
         }
+
 
         setFormData({
           title: data.job.title || '',
@@ -88,7 +98,7 @@ export default function EditJob() {
           responsibilities: data.job.responsibilities || '',
           benefits: data.job.benefits || '',
           employmentType: data.job.employmentType || '',
-          mbtiTypes: mbtiTypes,
+          mbtiTypes: mbtiTypesString, // Store as string
           deadline: formattedDeadline
         });
       } catch (err) {
@@ -113,19 +123,20 @@ export default function EditJob() {
     setSubmitting(true);
 
     try {
-      // Format MBTI types if needed before sending
-      const dataToSend: Record<string, any> = { ...formData };
-      if (dataToSend.mbtiTypes && typeof dataToSend.mbtiTypes === 'string') {
-        // If backend expects array, split and trim the comma-separated string
-        dataToSend.mbtiTypes = dataToSend.mbtiTypes.split(',').map(type => type.trim());
-      }
+      // --- REMOVED THE ARRAY CONVERSION ---
+      // const dataToSend: Record<string, any> = { ...formData };
+      // if (dataToSend.mbtiTypes && typeof dataToSend.mbtiTypes === 'string') {
+      //   dataToSend.mbtiTypes = dataToSend.mbtiTypes.split(',').map(type => type.trim());
+      // }
+      // --- END REMOVAL ---
 
       const response = await fetch(`/api/employer/jobs/${jobId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(dataToSend),
+        // Send formData directly, which contains mbtiTypes as a string
+        body: JSON.stringify(formData),
         credentials: 'include'
       });
 
@@ -155,6 +166,34 @@ export default function EditJob() {
     );
   }
 
+  // If the user is loaded but not an employer, or if there was an error loading
+  if (!user || user.role !== 'EMPLOYER') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Access Denied or Redirecting...</p>
+      </div>
+    );
+  }
+
+  // Show error if loading finished but there was an error (and not submitting)
+  if (error && !isLoading && !submitting) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-4">
+          <Link href="/employer/jobs" className="text-blue-600 hover:underline">
+            ← Back to Jobs
+          </Link>
+        </div>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    );
+  }
+
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -162,15 +201,15 @@ export default function EditJob() {
           ← Back to Jobs
         </Link>
       </div>
-      
+
       <h1 className="text-3xl font-bold mb-8">Edit Job</h1>
-      
-      {error && (
+
+      {error && ( // Show submission errors here
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -187,7 +226,7 @@ export default function EditJob() {
               className="w-full p-2 border rounded"
             />
           </div>
-          
+
           <div>
             <label htmlFor="company" className="block text-sm font-medium mb-1">
               Company <span className="text-red-500">*</span>
@@ -203,7 +242,7 @@ export default function EditJob() {
             />
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label htmlFor="location" className="block text-sm font-medium mb-1">
@@ -219,7 +258,7 @@ export default function EditJob() {
               className="w-full p-2 border rounded"
             />
           </div>
-          
+
           <div>
             <label htmlFor="salary" className="block text-sm font-medium mb-1">
               Salary Range
@@ -235,7 +274,7 @@ export default function EditJob() {
             />
           </div>
         </div>
-        
+
         <div>
           <label htmlFor="description" className="block text-sm font-medium mb-1">
             Job Description <span className="text-red-500">*</span>
@@ -250,7 +289,7 @@ export default function EditJob() {
             className="w-full p-2 border rounded"
           ></textarea>
         </div>
-        
+
         <div>
           <label htmlFor="requirements" className="block text-sm font-medium mb-1">
             Requirements <span className="text-red-500">*</span>
@@ -266,7 +305,7 @@ export default function EditJob() {
             className="w-full p-2 border rounded"
           ></textarea>
         </div>
-        
+
         <div>
           <label htmlFor="responsibilities" className="block text-sm font-medium mb-1">
             Responsibilities
@@ -281,7 +320,7 @@ export default function EditJob() {
             className="w-full p-2 border rounded"
           ></textarea>
         </div>
-        
+
         <div>
           <label htmlFor="benefits" className="block text-sm font-medium mb-1">
             Benefits
@@ -296,7 +335,7 @@ export default function EditJob() {
             className="w-full p-2 border rounded"
           ></textarea>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label htmlFor="employmentType" className="block text-sm font-medium mb-1">
@@ -317,7 +356,7 @@ export default function EditJob() {
               <option value="Temporary">Temporary</option>
             </select>
           </div>
-          
+
           <div>
             <label htmlFor="mbtiTypes" className="block text-sm font-medium mb-1">
               Preferred MBTI Types
@@ -333,7 +372,7 @@ export default function EditJob() {
             />
           </div>
         </div>
-        
+
         <div>
           <label htmlFor="deadline" className="block text-sm font-medium mb-1">
             Application Deadline <span className="text-red-500">*</span>
@@ -345,20 +384,21 @@ export default function EditJob() {
             value={formData.deadline}
             onChange={handleChange}
             required
+            min={new Date().toISOString().split('T')[0]} // Prevent selecting past dates
             className="w-full p-2 border rounded"
           />
         </div>
-        
+
         <div className="flex justify-end space-x-4 pt-4">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => router.push('/employer/jobs')}
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={submitting}
           >
             {submitting ? 'Updating...' : 'Update Job'}
@@ -367,4 +407,4 @@ export default function EditJob() {
       </form>
     </div>
   );
-} 
+}

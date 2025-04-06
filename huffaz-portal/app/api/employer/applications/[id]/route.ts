@@ -1,21 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/app/lib/db';
-import { getTokenFromCookies, verifyToken } from '@/app/lib/auth';
+import { getCurrentUser } from '@/app/lib/auth'; // Use getCurrentUser
 
 export async function GET(
-  request: Request,
+  request: NextRequest, // Accept request
   { params }: { params: { id: string } }
 ) {
   try {
-    const token = await getTokenFromCookies();
+    const user = await getCurrentUser(request); // Pass request
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
-
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -62,8 +57,8 @@ export async function GET(
     }
 
     // Verify job belongs to this employer
-    if (application.jobPosting.adminId !== decoded.id) {
-      console.log(`Unauthorized: Job belongs to admin ${application.jobPosting.adminId}, not ${decoded.id}`);
+    if (application.jobPosting.adminId !== user.id) {
+      console.log(`Unauthorized: Job belongs to admin ${application.jobPosting.adminId}, not ${user.id}`);
       return NextResponse.json(
         { error: 'You do not have permission to view this application' },
         { status: 403 }

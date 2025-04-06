@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { useSession } from '@/app/lib/session'; // Import useSession
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { refreshSession } = useSession(); // Get refreshSession
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,6 +29,7 @@ function LoginContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -35,13 +38,18 @@ function LoginContent() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Redirect to dashboard upon successful login
-      router.push('/dashboard');
+      // --- Removed setTimeout ---
+      // Immediately trigger session refresh and redirect
+      await refreshSession(); // Explicitly refresh session state
+      router.replace('/dashboard'); // Use replace to avoid login page in history
+      // router.refresh(); // Keep refresh if you need server components to update immediately
+      // --- End Removal ---
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only set loading false on error
     }
+    // Don't set setLoading(false) on success, as we are navigating away
   };
 
   return (
@@ -133,4 +141,4 @@ export default function LoginPage() {
       <LoginContent />
     </Suspense>
   );
-} 
+}

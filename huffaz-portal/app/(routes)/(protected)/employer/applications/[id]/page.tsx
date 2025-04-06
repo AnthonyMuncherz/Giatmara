@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from '@/app/lib/session';
+import { useSession } from '@/app/lib/session'; // Keep this import path
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 
@@ -42,16 +42,26 @@ export default function ApplicationDetailsPage() {
 
   // Fetch application details
   useEffect(() => {
-    if (sessionLoading || !user || !applicationId) {
-      // Don't fetch if session is loading, user not logged in, or no ID yet
-      if (!sessionLoading && !user) {
-        setError('Please log in to view application details.');
-        setIsLoading(false);
-      }
+    if (sessionLoading || !applicationId) {
+      // Wait for session and ID
       return;
     }
 
+    if (!user) {
+      // If session loaded but no user, redirect
+      router.push('/login');
+      return;
+    }
+
+    if (user.role !== 'EMPLOYER') {
+      // If user is not employer, redirect
+      router.push('/dashboard');
+      return;
+    }
+
+
     async function fetchApplication() {
+      // Only set loading true when actually fetching
       setIsLoading(true);
       setError('');
       try {
@@ -60,34 +70,32 @@ export default function ApplicationDetailsPage() {
         });
 
         if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+          setError(errorData.error || `Failed to load application details (${response.status})`);
           if (response.status === 401 || response.status === 403) {
-            setError('Unauthorized or Forbidden. You may not have permission to view this application.');
-          } else if (response.status === 404) {
-            setError('Application not found.');
-          } else {
-            setError(`Failed to load application details (${response.status})`);
+            // Optionally redirect or just show error
+            // router.push('/login');
           }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.application) {
-          setApplication(data.application);
+          console.error('API Error:', errorData);
         } else {
-          setError('Application data not found in response.');
+          const data = await response.json();
+          if (data.application) {
+            setApplication(data.application);
+          } else {
+            setError('Application data not found in response.');
+          }
         }
       } catch (err) {
         console.error('Error fetching application details:', err);
-        if (!error) { // Avoid overwriting specific errors
-          setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
-        }
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchApplication();
-  }, [applicationId, user, sessionLoading, error]); // Added error to dependency array to prevent refetch loop on error
+  }, [applicationId, user, sessionLoading, router]); // router added as dependency
+
 
   // Function to update status (similar to the list page, but updates local state here)
   const handleStatusUpdate = async (newStatus: string) => {
@@ -133,13 +141,24 @@ export default function ApplicationDetailsPage() {
     );
   }
 
+  // If useEffect handled redirection, this might not be strictly needed, but good for clarity
+  if (!user || user.role !== 'EMPLOYER') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Access Denied or Redirecting...</p>
+      </div>
+    );
+  }
+
+
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-4">
-          <Link href={`/employer/jobs/${application?.job?.id}/applications`} className="text-blue-600 hover:underline">
-            ← Back to Applications List
-          </Link>
+          {/* Make back link dynamic or more generic */}
+          <Button variant="link" onClick={() => router.back()} className="p-0 h-auto">
+            ← Back
+          </Button>
         </div>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           <p className="font-bold">Error</p>
@@ -151,6 +170,7 @@ export default function ApplicationDetailsPage() {
   }
 
   if (!application) {
+    // This case might be hit if fetch succeeded but returned no application
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <p>Application not found.</p>
@@ -191,13 +211,17 @@ export default function ApplicationDetailsPage() {
               size="sm"
               onClick={() => handleStatusUpdate(status)}
               disabled={isUpdating || application.status === status}
-              className={
-                status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300' :
-                status === 'INTERVIEWING' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300' :
-                status === 'ACCEPTED' ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-300' :
-                status === 'REJECTED' ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' :
-                ''
-              }
+              className={`
+                ${application.status === status ? 'ring-2 ring-offset-1' : ''}
+                ${status === 'PENDING' ? 'border-yellow-300 text-yellow-800 hover:bg-yellow-50 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/50' : ''}
+                ${status === 'INTERVIEWING' ? 'border-blue-300 text-blue-800 hover:bg-blue-50 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/50' : ''}
+                ${status === 'ACCEPTED' ? 'border-green-300 text-green-800 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/50' : ''}
+                ${status === 'REJECTED' ? 'border-red-300 text-red-800 hover:bg-red-50 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/50' : ''}
+                ${application.status === status && status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-800/50 ring-yellow-400' : ''}
+                ${application.status === status && status === 'INTERVIEWING' ? 'bg-blue-100 dark:bg-blue-800/50 ring-blue-400' : ''}
+                ${application.status === status && status === 'ACCEPTED' ? 'bg-green-100 dark:bg-green-800/50 ring-green-400' : ''}
+                ${application.status === status && status === 'REJECTED' ? 'bg-red-100 dark:bg-red-800/50 ring-red-400' : ''}
+              `}
             >
               {status.charAt(0) + status.slice(1).toLowerCase()}
             </Button>
@@ -207,7 +231,7 @@ export default function ApplicationDetailsPage() {
       </div>
 
       {/* Error display for status update */}
-      {error && !isLoading && (
+      {error && !isLoading && ( // Only show update errors after initial load
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded text-sm">
           {error}
         </div>
@@ -228,9 +252,9 @@ export default function ApplicationDetailsPage() {
               <p><strong>MBTI Type:</strong> {application.applicant.mbtiType || 'Not Completed'}</p>
               <p><strong>Current Status:</strong>
                 <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${application.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    application.status === 'INTERVIEWING' ? 'bg-blue-100 text-blue-800' :
-                      application.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
-                        'bg-red-100 text-red-800'
+                  application.status === 'INTERVIEWING' ? 'bg-blue-100 text-blue-800' :
+                    application.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
                   }`}>
                   {application.status}
                 </span>
@@ -290,6 +314,15 @@ export default function ApplicationDetailsPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">No notes added yet.</p>
               )}
+              {/* Example Textarea (uncomment to enable adding notes)
+              <textarea
+                className="mt-4 w-full p-2 border rounded text-sm"
+                rows={3}
+                placeholder="Add internal notes here..."
+                // Add state and onChange handler if needed
+              ></textarea>
+              <Button size="sm" className="mt-2">Save Note</Button>
+              */}
             </CardContent>
           </Card>
         </div>

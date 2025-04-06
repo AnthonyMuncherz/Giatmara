@@ -1,31 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/app/lib/db';
-import { getTokenFromCookies, verifyToken } from '@/app/lib/auth';
+import { getCurrentUser } from '@/app/lib/auth'; // Use getCurrentUser
 
-export async function GET() {
+export async function GET(request: NextRequest) { // Accept request
   try {
-    const token = await getTokenFromCookies();
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const decoded = verifyToken(token);
-    
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
+    const user = await getCurrentUser(request); // Pass request
+
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
+
     // Count all jobs created by this employer using adminId field
     const count = await prisma.jobPosting.count({
       where: {
-        adminId: decoded.id as string
+        adminId: user.id as string,
+        status: 'ACTIVE' // Count only active jobs for the dashboard card
       }
     });
-    
+
     return NextResponse.json({ count });
   } catch (error) {
     console.error('Error counting employer jobs:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-} 
+}

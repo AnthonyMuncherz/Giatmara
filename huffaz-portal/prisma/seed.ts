@@ -43,6 +43,25 @@ async function main() {
     },
   });
 
+  // Create employer user
+  const employer = await prisma.user.upsert({
+    where: { email: 'employer@example.com' },
+    update: {},
+    create: {
+      email: 'employer@example.com',
+      password: hashedPassword,
+      role: 'EMPLOYER',
+      profile: {
+        create: {
+          firstName: 'Employer',
+          lastName: 'User',
+          mbtiCompleted: true,
+          mbtiType: 'ENTJ',
+        },
+      },
+    },
+  });
+
   // Helper function to generate a random future date for deadlines
   const generateFutureDate = () => {
     const today = new Date();

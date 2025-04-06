@@ -1,27 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/app/lib/db';
-import { getTokenFromCookies, verifyToken } from '@/app/lib/auth';
+import { getCurrentUser } from '@/app/lib/auth'; // Use getCurrentUser
 
 // Get all jobs created by the employer
-export async function GET() {
+export async function GET(request: NextRequest) { // Accept request
   try {
-    const token = await getTokenFromCookies();
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const decoded = verifyToken(token);
-    
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
+    const user = await getCurrentUser(request); // Pass request
+
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      // Handle unauthorized/forbidden cases based on 'user' content
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
+
     // Get all jobs created by this employer with application count
-    // @ts-ignore - Handle adminId field
     const jobs = await prisma.jobPosting.findMany({
       where: {
-        adminId: decoded.id as string,
+        adminId: user.id as string,
       },
       orderBy: {
         createdAt: 'desc'
@@ -34,18 +29,18 @@ export async function GET() {
         }
       }
     });
-    
+
     // Format the response
     const formattedJobs = jobs.map(job => ({
       id: job.id,
       title: job.title,
       company: job.company,
       location: job.location,
-      deadline: job.deadline,
+      deadline: job.deadline.toISOString(), // Ensure date is serialized properly
       status: job.status,
       applications: job._count.applications
     }));
-    
+
     return NextResponse.json({ jobs: formattedJobs });
   } catch (error) {
     console.error('Error fetching employer jobs:', error);
@@ -54,41 +49,46 @@ export async function GET() {
 }
 
 // Create a new job posting
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) { // Accept request
   try {
-    const token = await getTokenFromCookies();
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const decoded = verifyToken(token);
-    
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
+    const user = await getCurrentUser(request); // Pass request
+
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
+
     const requestBody = await request.json();
-    const { 
-      title, 
-      company, 
-      location, 
-      salary, 
-      description, 
-      requirements, 
+    const {
+      title,
+      company,
+      location,
+      salary,
+      description,
+      requirements,
       responsibilities,
       benefits,
       employmentType,
-      mbtiTypes, 
-      deadline 
+      mbtiTypes, // Keep as string
+      deadline
     } = requestBody;
-    
+
     // Validate required fields
     if (!title || !company || !location || !description || !requirements || !deadline) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-    
-    // @ts-ignore - Use adminId field
+
+    // Validate deadline format
+    let deadlineDate;
+    try {
+      deadlineDate = new Date(deadline);
+      if (isNaN(deadlineDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid deadline date format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
+
     const job = await prisma.jobPosting.create({
       data: {
         title,
@@ -100,19 +100,19 @@ export async function POST(request: Request) {
         responsibilities,
         benefits,
         employmentType,
-        mbtiTypes,
-        deadline: new Date(deadline),
-        status: 'ACTIVE',
-        adminId: decoded.id as string,
+        mbtiTypes, // Store as string
+        deadline: deadlineDate,
+        status: 'ACTIVE', // Default status for new jobs
+        adminId: user.id as string, // Use user.id from getCurrentUser
       },
     });
-    
-    return NextResponse.json({ 
-      message: 'Job created successfully', 
-      job 
-    });
+
+    return NextResponse.json({
+      message: 'Job created successfully',
+      job
+    }, { status: 201 }); // Use 201 Created status
   } catch (error) {
     console.error('Error creating job:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-} 
+}

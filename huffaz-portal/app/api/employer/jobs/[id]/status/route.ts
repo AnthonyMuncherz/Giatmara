@@ -1,21 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/app/lib/db';
-import { getTokenFromCookies, verifyToken } from '@/app/lib/auth';
+import { getCurrentUser } from '@/app/lib/auth'; // Use getCurrentUser
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest, // Accept request
   { params }: { params: { id: string } }
 ) {
   try {
-    const token = await getTokenFromCookies();
+    const user = await getCurrentUser(request); // Pass request
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
-
-    if (!decoded || !decoded.id || decoded.role !== 'EMPLOYER') {
+    if (!user || !user.id || user.role !== 'EMPLOYER') {
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -43,7 +38,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    if (job.adminId !== decoded.id) {
+    if (job.adminId !== user.id) {
       return NextResponse.json(
         { error: 'You do not have permission to update this job' },
         { status: 403 }
@@ -66,6 +61,9 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Error updating job status:', error);
+    if ((error as any).code === 'P2025') { // Handle Prisma not found error
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
